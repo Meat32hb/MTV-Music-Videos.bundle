@@ -1,5 +1,3 @@
-import re
-
 MTV_PLUGIN_PREFIX   = "/video/MTV"
 MTV_ROOT            = "http://www.mtv.com"
 MTV_VIDEO_PICKS     = "http://www.mtv.com/music/videos"
@@ -37,18 +35,22 @@ def VideoPage(pageUrl, title):
     for item in content.xpath('//div[@class="group-b"]/div/div//ol/li/div'):
         try:
           link = MTV_ROOT + item.xpath("a")[0].get('href')
+          Log(link)
         except:
           continue
-        image = item.xpath("a/img")[0].get('src')
+        try:
+          image = item.xpath("a/img")[0].get('src')
+        except:
+          image = ''
         if not image.startswith('http://'):
           image = MTV_ROOT + image
-        title = item.xpath("a")[-1].text.strip()
+        title = item.xpath('.//meta[@itemprop="name"]')[0].get('content')
         if title == None or len(title) == 0:
             title = item.xpath("a/img")[-1].get('alt')
         title = title.replace('"','')
         oc.add(VideoClipObject(url=link, title=title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback="icon-default.png")))
     if len(oc)==0:
-      return ObjectContainer(header="Sorry !", message="No video available in this category.")
+      return ObjectContainer(header="Sorry!", message="No video available in this category.")
     else:
       return oc
     
@@ -71,7 +73,7 @@ def YearPage(pageUrl, title):
         if title != None:
             title = title.strip('"').replace('- "','- ').replace(' "',' - ')
             thumb = MTV_ROOT + img.get('src')
-            link = re.sub('#.*','', url)
+            link = url.split('#')[0]
             oc.add(VideoClipObject(url=link, title=title, thumb=Resource.ContentsOfURLWithFallback(url=thumb, fallback="icon-default.png")))
     return oc
 
