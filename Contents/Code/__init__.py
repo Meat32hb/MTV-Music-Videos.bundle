@@ -34,8 +34,11 @@ def VideoPage(pageUrl, title):
     content = HTML.ElementFromURL(pageUrl)
     for item in content.xpath('//div[@class="group-b"]/div/div//ol/li/div'):
         try:
-          link = MTV_ROOT + item.xpath("a")[0].get('href')
-          Log(link)
+          link = item.xpath("a")[0].get('href')
+          if not link.startswith('http://'):
+            link = MTV_ROOT + link
+          else:
+            pass
         except:
           continue
         try:
@@ -44,11 +47,23 @@ def VideoPage(pageUrl, title):
           image = ''
         if not image.startswith('http://'):
           image = MTV_ROOT + image
-        title = item.xpath('.//meta[@itemprop="name"]')[0].get('content')
-        if title == None or len(title) == 0:
-            title = item.xpath("a/img")[-1].get('alt')
-        title = title.replace('"','')
-        oc.add(VideoClipObject(url=link, title=title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback="icon-default.png")))
+        try:
+          video_title = item.xpath('.//meta[@itemprop="name"]')[0].get('content')
+        except:
+          if '/artist/' in pageUrl:
+            artist = title
+            video_title = item.xpath('.//a/text()')[0].strip()
+            video_title = "%s - %s" % (artist, video_title)
+          else:
+            video_title = item.xpath('.//a/img')[0].get('alt')
+        if video_title == None or len(video_title) == 0:
+            video_title = item.xpath("a/img")[-1].get('alt')
+        video_title = video_title.replace('"','')
+        try:
+          date = Datetime.ParseDate(item.xpath('.//time[@itemprop="datePublished"]')[0].text).date()
+        except:
+          date = None
+        oc.add(VideoClipObject(url=link, title=video_title, originally_available_at=date, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback="icon-default.png")))
     if len(oc)==0:
       return ObjectContainer(header="Sorry!", message="No video available in this category.")
     else:
