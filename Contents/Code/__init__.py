@@ -1,13 +1,6 @@
-# the only place that the premiere videos actually are is in the buzzworthy blogs AT "http://buzzworthy.mtv.com/category/video_premieres"
-# BUT FOUND THAT THERE ARE STILL ANOTHER GROUP OF MUSIC VIDEOS THAT ARE NOT SUPPORTED BY THE URL SERVICE
-# WHICH ARE TOPSPIN VIDEOS. tHAY ALL SEEM TO HAVE /ARTIST/ IN THE URL
+# FOUND THAT THERE ARE STILL ANOTHER GROUP OF MUSIC VIDEOS THAT ARE NOT SUPPORTED BY THE URL SERVICE
+# WHICH ARE TOPSPIN VIDEOS. They ALL SEEM TO HAVE /ARTIST/ IN THE URL SO I EXCLUDED THEM
 # EX 'http://www.mtv.com/artists/the-material/tracks/210716/'
-
-# Could add the most recent ajax 'http://www.mtv.com/music/home/ajax/mostRecent'
-# Also most popular videos can be arranged by last 24hr, lst 7 days, and lst month as well as by pop/rock and hiphop
-
-# LOOK BACK AT YEARBOOK SINCE IT SHOULD BE BRINGING UP A PLAYLIST
-# WE COULD ADD MORE SECTIONS TO MOST POPULAR VIDEOS AND CHANGE PREMIERES TO THE RECENT AJAX
 
 MTV_PLUGIN_PREFIX   = "/video/MTV"
 MTV_ROOT            = "http://www.mtv.com"
