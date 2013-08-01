@@ -2,7 +2,10 @@
 # WHICH ARE TOPSPIN VIDEOS. They ALL SEEM TO HAVE /ARTIST/ IN THE URL SO I EXCLUDED THEM
 # EX 'http://www.mtv.com/artists/the-material/tracks/210716/'
 
-MTV_PLUGIN_PREFIX   = "/video/MTV"
+PREFIX   = "/video/MTV"
+TITLE = "MTV Music Videos"
+ART = 'art-default.jpg'
+ICON = 'icon-default.png'
 MTV_ROOT            = "http://www.mtv.com"
 MTV_VIDEO_PICKS     = "http://www.mtv.com/music/videos"
 MTV_VIDEO_PREMIERES = "http://www.mtv.com/music/videos/premieres"
@@ -18,15 +21,15 @@ USER_AGENT = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.12
 
 ####################################################################################################
 def Start():
-  Plugin.AddPrefixHandler(MTV_PLUGIN_PREFIX, MainMenu, "MTV Music Videos", "icon-default.png", "art-default.jpg")
-  ObjectContainer.art = R('art-default.jpg')
-  ObjectContainer.title1 = 'MTV Music Videos'
-  DirectoryObject.thumb=R("icon-default.png")
+  ObjectContainer.art = R(ART)
+  ObjectContainer.title1 = TITLE
+  DirectoryObject.thumb=R(ICON)
 
   HTTP.Headers['User-Agent'] = USER_AGENT
   #HTTP.CacheTime=3600
 
 ####################################################################################################
+@handler(PREFIX, TITLE, art=ART, thumb=ICON)
 def MainMenu():
     oc = ObjectContainer()
     oc.add(DirectoryObject(key=Callback(VideoPage, pageUrl = MTV_VIDEO_PICKS, title="Top Picks"), title="Top Picks"))
@@ -37,6 +40,7 @@ def MainMenu():
     return oc
 
 ####################################################################################################
+@route(PREFIX + '/mostpopularmain')
 def MostPopularMain():
     oc = ObjectContainer()
     time = ["today", "week", "month"]
@@ -46,6 +50,7 @@ def MostPopularMain():
     oc.add(DirectoryObject(key=Callback(VideoPage, pageUrl = MTV_VIDEO_TOPRATED, title="Most Popular All Time"), title="Most Popular All Time"))
     return oc
 ####################################################################################################
+@route(PREFIX + '/artistmain')
 def ArtistMain():
     oc = ObjectContainer()
     oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST + 'popular/', title="Most Popular Artist"), title="Most Popular Artist"))
@@ -54,6 +59,7 @@ def ArtistMain():
     oc.add(DirectoryObject(key=Callback(ArtistGenre), title="Artists By Genre"))
     return oc
 ####################################################################################################
+@route(PREFIX + '/artistgenre')
 def ArtistGenre():
     oc = ObjectContainer()
     oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST_GENRE + 'rock/', title="Rock Artists"), title="Rock Artists"))
@@ -64,6 +70,7 @@ def ArtistGenre():
     oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST_GENRE + 'pop/', title="Pop Artists"), title="Pop Artists"))
     return oc
 ####################################################################################################
+@route(PREFIX + '/videopage')
 def VideoPage(pageUrl, title):
     oc = ObjectContainer(title2=title)
     content = HTML.ElementFromURL(pageUrl)
@@ -98,13 +105,14 @@ def VideoPage(pageUrl, title):
           date = Datetime.ParseDate(item.xpath('.//time[@itemprop="datePublished"]')[0].text).date()
         except:
           date = None
-        oc.add(VideoClipObject(url=link, title=video_title, originally_available_at=date, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback="icon-default.png")))
+        oc.add(VideoClipObject(url=link, title=video_title, originally_available_at=date, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
     if len(oc)==0:
       return ObjectContainer(header="Sorry!", message="No video available in this category.")
     else:
       return oc
     
 ####################################################################################################
+@route(PREFIX + '/yearbook')
 def Yearbook():
     oc = ObjectContainer(title2="Yearbook")
     for year in HTML.ElementFromURL(MTV_VIDEO_YEARBOOK).xpath("//div[@class='group-a']/ul/li/a"):
@@ -114,6 +122,7 @@ def Yearbook():
     return oc
     
 ####################################################################################################
+@route(PREFIX + '/yearpage')
 def YearPage(pageUrl, title):
     oc = ObjectContainer(title2=title)
     for video in HTML.ElementFromURL(pageUrl).xpath("//div[@class='mdl']//ol/li"):
@@ -124,10 +133,11 @@ def YearPage(pageUrl, title):
             title = title.strip('"').replace('- "','- ').replace(' "',' - ')
             thumb = MTV_ROOT + img.get('src')
             link = url.split('#')[0]
-            oc.add(VideoClipObject(url=link, title=title, thumb=Resource.ContentsOfURLWithFallback(url=thumb, fallback="icon-default.png")))
+            oc.add(VideoClipObject(url=link, title=title, thumb=Resource.ContentsOfURLWithFallback(url=thumb, fallback=ICON)))
     return oc
 
 ####################################################################################################
+@route(PREFIX + '/artistalphabet')
 def ArtistAlphabet():
     oc = ObjectContainer(title2="Artists")
     for ch in list('ABCDEFGHIJKLMNOPQRSTUVWXYZ#'):
@@ -135,6 +145,7 @@ def ArtistAlphabet():
     return oc
 
 ####################################################################################################
+@route(PREFIX + '/artists')
 def Artists(ch):
     oc = ObjectContainer(title2="Artists: %s" % ch)
     url = MTV_VIDEO_DIRECTORY % ch
@@ -153,6 +164,7 @@ def Artists(ch):
       return oc
 
 ####################################################################################################
+@route(PREFIX + '/artistvideopage')
 def ArtistVideoPage(pageUrl, title):
     oc = ObjectContainer(title2=title)
     # there are a few bad urls in the artsit page, we try to resolve them above but some still fail
@@ -178,12 +190,13 @@ def ArtistVideoPage(pageUrl, title):
         except:
           video_title = ''
         artist = title
-        oc.add(VideoClipObject(url=link, title=video_title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback="icon-default.png")))
+        oc.add(VideoClipObject(url=link, title=video_title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
     if len(oc)==0:
       return ObjectContainer(header="Sorry!", message="No video available in this category.")
     else:
       return oc
 ####################################################################################################
+@route(PREFIX + '/artistpages')
 def ArtistsPages(pageUrl, title):
     oc = ObjectContainer(title2=title)
     # there are a few bad urls in the artsit page, we try to resolve them above but some still fail
@@ -196,7 +209,7 @@ def ArtistsPages(pageUrl, title):
       image = item.xpath('./a/div/div/img')[0].get('src')
       image = image.split('?')[0]
       title = item.xpath('./meta[@itemprop="name"]')[0].get('content')
-      oc.add(DirectoryObject(key=Callback(ArtistVideoPage, pageUrl=url, title=title), title=title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback="icon-default.png")))
+      oc.add(DirectoryObject(key=Callback(ArtistVideoPage, pageUrl=url, title=title), title=title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
 
     if len(oc)==0:
       return ObjectContainer(header="Sorry!", message="No video available in this category.")
@@ -204,6 +217,7 @@ def ArtistsPages(pageUrl, title):
       return oc
 
 ####################################################################################################
+@route(PREFIX + '/mostrecent')
 def MostRecent(title):
     oc = ObjectContainer(title2=title)
     # there are a few bad urls in the artsit page, we try to resolve them above but some still fail
@@ -216,7 +230,7 @@ def MostRecent(title):
         image = image.split('?')[0]
         title = item.xpath('./div/a//text()')[0]
         title = title.strip()
-        oc.add(VideoClipObject(url=url, title=title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback="icon-default.png")))
+        oc.add(VideoClipObject(url=url, title=title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
 
     if len(oc)==0:
       return ObjectContainer(header="Sorry!", message="No video available in this category.")
