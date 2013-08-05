@@ -16,7 +16,9 @@ MTV_ARTIST = "http://www.mtv.com/artists/"
 MTV_ARTIST_GENRE = "http://www.mtv.com/artists/genre/"
 MTV_MOST_RECENT = 'http://www.mtv.com/music/home/ajax/mostRecent'
 MTV_POPULAR = 'http://www.mtv.com/most-popular/music-videos/?metric=numberOfViews&range=%s&order=desc'
+MTV_PLAYLIST = 'http://www.mtv.com/global/music/videos/ajax/playlist.jhtml?feo_switch=true&channelId=1&id=%s'
 
+RE_YEARID  = Regex('contentId=(.+?)&year=')
 USER_AGENT = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.12) Gecko/20101026 Firefox/3.6.12'
 
 ####################################################################################################
@@ -33,7 +35,7 @@ def Start():
 def MainMenu():
     oc = ObjectContainer()
     oc.add(DirectoryObject(key=Callback(VideoPage, pageUrl = MTV_VIDEO_PICKS, title="Top Picks"), title="Top Picks"))
-    oc.add(DirectoryObject(key=Callback(MostRecent, title="Most Recent Videos"), title="Most Recent Videos"))
+    oc.add(DirectoryObject(key=Callback(SpecialVideos, title="Most Recent Videos", url=MTV_MOST_RECENT), title="Most Recent Videos"))
     oc.add(DirectoryObject(key=Callback(MostPopularMain), title="Most Popular Videos"))
     oc.add(DirectoryObject(key=Callback(ArtistMain), title="Artists"))
     oc.add(DirectoryObject(key=Callback(Yearbook), title="Yearbook"))
@@ -74,9 +76,9 @@ def ArtistGenre():
 def VideoPage(pageUrl, title):
     oc = ObjectContainer(title2=title)
     content = HTML.ElementFromURL(pageUrl)
-    for item in content.xpath('//div[@class="group-b"]/div/div//ol/li/div'):
+    for item in content.xpath('//ol/li[@itemtype="http://schema.org/VideoObject"]'):
         try:
-          link = item.xpath("a")[0].get('href')
+          link = item.xpath('./div/a//@href')[0]
           if not link.startswith('http://'):
             link = MTV_ROOT + link
           else:
@@ -84,25 +86,22 @@ def VideoPage(pageUrl, title):
         except:
           continue
         try:
-          image = item.xpath("a/img")[0].get('src')
+          image = item.xpath('./div/a/img//@src')[0]
+          if not image.startswith('http://'):
+            image = MTV_ROOT + image
         except:
           image = ''
-        if not image.startswith('http://'):
-          image = MTV_ROOT + image
         try:
-          video_title = item.xpath('.//meta[@itemprop="name"]')[0].get('content')
+          video_title = item.xpath('./div/a/img//@alt')[0]
         except:
-          if '/artist/' in pageUrl:
-            artist = title
-            video_title = item.xpath('.//a/text()')[0].strip()
-            video_title = "%s - %s" % (artist, video_title)
-          else:
-            video_title = item.xpath('.//a/img')[0].get('alt')
+          try:
+            video_title = item.xpath('./div/meta[@itemprop="name"]//@content')[0].strip()
+          except:
+            video_title = None
         if video_title == None or len(video_title) == 0:
-            video_title = item.xpath("a/img")[-1].get('alt')
-        video_title = video_title.replace('"','')
+            video_title = item.xpath('div/a/img//@alt')[-1]
         try:
-          date = Datetime.ParseDate(item.xpath('.//time[@itemprop="datePublished"]')[0].text).date()
+          date = Datetime.ParseDate(item.xpath('./p/span/time[@itemprop="datePublished"]//text()')[0].date())
         except:
           date = None
         oc.add(VideoClipObject(url=link, title=video_title, originally_available_at=date, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
@@ -116,26 +115,17 @@ def VideoPage(pageUrl, title):
 def Yearbook():
     oc = ObjectContainer(title2="Yearbook")
     for year in HTML.ElementFromURL(MTV_VIDEO_YEARBOOK).xpath("//div[@class='group-a']/ul/li/a"):
-        link = MTV_ROOT + year.get('href')
+        link = year.get('href')
+        if not link.startswith('http://'):
+          link = MTV_ROOT + link
         title = year.text.replace(' Videos of ','')
-        oc.add(DirectoryObject(key=Callback(YearPage, pageUrl=link, title=title), title=title))
+        section_id = RE_YEARID.search(link).group(1)
+        Log ('the value of section_id is %s' %section_id)
+        url = MTV_PLAYLIST %section_id
+
+        oc.add(DirectoryObject(key=Callback(SpecialVideos, url=url, title=title), title=title))
     return oc
     
-####################################################################################################
-@route(PREFIX + '/yearpage')
-def YearPage(pageUrl, title):
-    oc = ObjectContainer(title2=title)
-    for video in HTML.ElementFromURL(pageUrl).xpath("//div[@class='mdl']//ol/li"):
-        url = MTV_ROOT + video.xpath('.//a')[0].get('href')
-        img = video.xpath('.//a/img')[0]
-        title = img.get('alt')
-        if title != None:
-            title = title.strip('"').replace('- "','- ').replace(' "',' - ')
-            thumb = MTV_ROOT + img.get('src')
-            link = url.split('#')[0]
-            oc.add(VideoClipObject(url=link, title=title, thumb=Resource.ContentsOfURLWithFallback(url=thumb, fallback=ICON)))
-    return oc
-
 ####################################################################################################
 @route(PREFIX + '/artistalphabet')
 def ArtistAlphabet():
@@ -164,38 +154,6 @@ def Artists(ch):
       return oc
 
 ####################################################################################################
-@route(PREFIX + '/artistvideopage')
-def ArtistVideoPage(pageUrl, title):
-    oc = ObjectContainer(title2=title)
-    # there are a few bad urls in the artsit page, we try to resolve them above but some still fail
-    try:
-      content = HTML.ElementFromURL(pageUrl)
-    except:
-      return ObjectContainer(header="Sorry!", message="No video available in this category.")
-    for item in content.xpath('//ul/li[@type="videos"]'):
-      link = item.xpath("a")[0].get('href')
-      if not link.startswith('http://'):
-        link = MTV_ROOT + link
-	  # SOME VIDEOS ARE topspin videos (have /artists/ in url) are listed here and they are not supported by the URL service
-      if not '/artists/' in link:
-        # A few artist pages do not have thumbnail itemprop so added alternate thumb location
-        try:
-          image = item.xpath('.//meta[@itemprop="thumbnail"]')[0].get('content')
-        except:
-          image = item.xpath('./a/div/div/img')[0].get('src')
-        image = image.split('?')[0]
-        # found one with a blank title
-        try:
-          video_title = item.xpath('.//meta[@itemprop="name"]')[0].get('content')
-        except:
-          video_title = ''
-        artist = title
-        oc.add(VideoClipObject(url=link, title=video_title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
-    if len(oc)==0:
-      return ObjectContainer(header="Sorry!", message="No video available in this category.")
-    else:
-      return oc
-####################################################################################################
 @route(PREFIX + '/artistpages')
 def ArtistsPages(pageUrl, title):
     oc = ObjectContainer(title2=title)
@@ -217,19 +175,76 @@ def ArtistsPages(pageUrl, title):
       return oc
 
 ####################################################################################################
-@route(PREFIX + '/mostrecent')
-def MostRecent(title):
+# Looked at combining this with VideoPage function, but just different enough to need a separate function
+@route(PREFIX + '/artistvideopage')
+def ArtistVideoPage(pageUrl, title):
     oc = ObjectContainer(title2=title)
     # there are a few bad urls in the artsit page, we try to resolve them above but some still fail
-    content = HTML.ElementFromURL(MTV_MOST_RECENT)
+    try:
+      content = HTML.ElementFromURL(pageUrl)
+    except:
+      return ObjectContainer(header="Sorry!", message="No video available in this category.")
+    for item in content.xpath('//ul/li[@type="videos"]'):
+      try:
+        link = item.xpath('./a//@href')[0]
+        if not link.startswith('http://'):
+          link = MTV_ROOT + link
+      except:
+        continue
+      # SOME VIDEOS ARE topspin videos (have /artists/ in the video url) are listed here and they are not supported by the URL service
+      if not '/artists/' in link:
+        # A few artist pages do not have thumbnail itemprop so added alternate thumb location
+        try:
+          image = item.xpath('./meta[@itemprop="thumbnail"]//@content')[0]
+        except:
+          try:
+            image = item.xpath('./a/div/div/img//@src')[0]
+            image = image.split('?')[0]
+          except:
+            image = ''
+        # found one with a blank title
+        try:
+          video_title = item.xpath('./meta[@itemprop="name"]//@content')[0]
+        except:
+          try:
+            video_title = item.xpath('./a/div/div/img//@alt')[0]
+          except:
+            video_title = ''
+        artist = title
+        video_title = "%s - %s" % (artist, video_title)
+        oc.add(VideoClipObject(url=link, title=video_title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
+      else:
+        pass
+    if len(oc)==0:
+      return ObjectContainer(header="Sorry!", message="No video available in this category.")
+    else:
+      return oc
+####################################################################################################
+@route(PREFIX + '/specialvideos')
+def SpecialVideos(url, title):
+    oc = ObjectContainer(title2=title)
+    content = HTML.ElementFromURL(url)
     for item in content.xpath('//ol/li'):
-      url = item.xpath('./div/a//@href')[0]
-      # adding check for unnaccepted urls
+      try:
+        url = item.xpath('./div/a//@href')[0]
+        if not url.startswith('http://'):
+          url = MTV_ROOT + url
+      except:
+        continue
+      # SOME NEWER VIDEOS ARE topspin videos (have /artists/ in the video url) and they are not supported by the URL service
       if not '/artists/' in url:
-        image = item.xpath('./div/a/img//@src')[0]
-        image = image.split('?')[0]
-        title = item.xpath('./div/a//text()')[0]
-        title = title.strip()
+        try:
+          image = item.xpath('./div/a/img//@src')[0]
+          image = image.split('?')[0]
+        except:
+          image = ''
+        try:
+          title = item.xpath('./div/a/img//@alt')[0].strip()
+        except:
+          try:
+            title = item.xpath('./div/a/strong/text()')[0].strip()
+          except:
+            title = None
         oc.add(VideoClipObject(url=url, title=title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
 
     if len(oc)==0:
