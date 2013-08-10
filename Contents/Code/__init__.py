@@ -2,10 +2,8 @@
 # WHICH ARE TOPSPIN VIDEOS. They ALL SEEM TO HAVE /ARTIST/ IN THE URL SO I EXCLUDED THEM
 # EX 'http://www.mtv.com/artists/the-material/tracks/210716/'
 
-PREFIX   = "/video/MTV"
+PREFIX = "/video/MTV"
 TITLE = "MTV Music Videos"
-ART = 'art-default.jpg'
-ICON = 'icon-default.png'
 MTV_ROOT            = "http://www.mtv.com"
 MTV_VIDEO_PICKS     = "http://www.mtv.com/music/videos"
 MTV_VIDEO_PREMIERES = "http://www.mtv.com/music/videos/premieres"
@@ -19,19 +17,17 @@ MTV_POPULAR = 'http://www.mtv.com/most-popular/music-videos/?metric=numberOfView
 MTV_PLAYLIST = 'http://www.mtv.com/global/music/videos/ajax/playlist.jhtml?feo_switch=true&channelId=1&id=%s'
 
 RE_YEARID  = Regex('contentId=(.+?)&year=')
-USER_AGENT = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.12) Gecko/20101026 Firefox/3.6.12'
+USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:22.0) Gecko/20100101 Firefox/22.0'
 
 ####################################################################################################
 def Start():
-  ObjectContainer.art = R(ART)
   ObjectContainer.title1 = TITLE
-  DirectoryObject.thumb=R(ICON)
 
   HTTP.Headers['User-Agent'] = USER_AGENT
-  #HTTP.CacheTime=3600
+  HTTP.CacheTime = CACHE_1HOUR
 
 ####################################################################################################
-@handler(PREFIX, TITLE, art=ART, thumb=ICON)
+@handler(PREFIX, TITLE)
 def MainMenu():
     oc = ObjectContainer()
     oc.add(DirectoryObject(key=Callback(VideoPage, pageUrl = MTV_VIDEO_PICKS, title="Top Picks"), title="Top Picks"))
@@ -104,7 +100,7 @@ def VideoPage(pageUrl, title):
           date = Datetime.ParseDate(item.xpath('./p/span/time[@itemprop="datePublished"]//text()')[0].date())
         except:
           date = None
-        oc.add(VideoClipObject(url=link, title=video_title, originally_available_at=date, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
+        oc.add(VideoClipObject(url=link, title=video_title, originally_available_at=date, thumb=Resource.ContentsOfURLWithFallback(url=image)))
     if len(oc)==0:
       return ObjectContainer(header="Sorry!", message="No video available in this category.")
     else:
@@ -167,7 +163,7 @@ def ArtistsPages(pageUrl, title):
       image = item.xpath('./a/div/div/img')[0].get('src')
       image = image.split('?')[0]
       title = item.xpath('./meta[@itemprop="name"]')[0].get('content')
-      oc.add(DirectoryObject(key=Callback(ArtistVideoPage, pageUrl=url, title=title), title=title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
+      oc.add(DirectoryObject(key=Callback(ArtistVideoPage, pageUrl=url, title=title), title=title, thumb=Resource.ContentsOfURLWithFallback(url=image)))
 
     if len(oc)==0:
       return ObjectContainer(header="Sorry!", message="No video available in this category.")
@@ -212,7 +208,7 @@ def ArtistVideoPage(pageUrl, title):
             video_title = ''
         artist = title
         video_title = "%s - %s" % (artist, video_title)
-        oc.add(VideoClipObject(url=link, title=video_title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
+        oc.add(VideoClipObject(url=link, title=video_title, thumb=Resource.ContentsOfURLWithFallback(url=image)))
       else:
         pass
     if len(oc)==0:
@@ -245,7 +241,7 @@ def SpecialVideos(url, title):
             title = item.xpath('./div/a/strong/text()')[0].strip()
           except:
             title = None
-        oc.add(VideoClipObject(url=url, title=title, thumb=Resource.ContentsOfURLWithFallback(url=image, fallback=ICON)))
+        oc.add(VideoClipObject(url=url, title=title, thumb=Resource.ContentsOfURLWithFallback(url=image)))
 
     if len(oc)==0:
       return ObjectContainer(header="Sorry!", message="No video available in this category.")
