@@ -5,10 +5,9 @@
 PREFIX = "/video/MTV"
 TITLE = "MTV Music Videos"
 MTV_ROOT            = "http://www.mtv.com"
-MTV_VIDEO     = "http://www.mtv.com/music/videos"
-MTV_VIDEO_DIRECTORY = "http://www.mtv.com/music/video/browse.jhtml?chars=%s"
+MTV_VIDEO     = "http://www.mtv.com/music/videos/"
 MTV_ARTIST = "http://www.mtv.com/artists/"
-MTV_ARTIST_GENRE = "http://www.mtv.com/artists/genre/"
+MTV_SEARCH = 'http://search.mtvnservices.com/typeahead/suggest/?spellcheck.count=5&q=%s&siteName=artist_platform&format=json&rows=50'
 
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:22.0) Gecko/20100101 Firefox/22.0'
 
@@ -44,19 +43,7 @@ def ArtistMain():
     oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST, title="MTV Picks"), title="MTV Picks"))
     oc.add(DirectoryObject(key=Callback(CollectionsPages, pageUrl = MTV_ARTIST + 'collections/', title="Collections"), title="Collections"))
     oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST + '/collections/artist-to-watch/897377/', title="Artist To Watch"), title="Artist To Watch"))
-    oc.add(DirectoryObject(key=Callback(ArtistGenre), title="Artists By Genre"))
-    oc.add(DirectoryObject(key=Callback(ArtistAlphabet), title="Artists A to Z"))
-    return oc
-####################################################################################################
-@route(PREFIX + '/artistgenre')
-def ArtistGenre():
-    oc = ObjectContainer()
-    oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST_GENRE + 'rock/', title="Rock Artists"), title="Rock Artists"))
-    oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST_GENRE + 'hip-hop/', title="Hip-Hop Artists"), title="Hip-Hop Artists"))
-    oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST_GENRE + 'indie/', title="Indie Artists"), title="Indie Artists"))
-    oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST_GENRE + 'electronic/', title="Electronic/EDM Artists"), title="Electronic/EDM Artists"))
-    oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST_GENRE + 'country/', title="Country Artists"), title="Country Artists"))
-    oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl = MTV_ARTIST_GENRE + 'pop/', title="Pop Artists"), title="Pop Artists"))
+    oc.add(InputDirectoryObject(key=Callback(SearchArtists, title="Search for Artists"), title="Search for Artists", summary="Click here to search for artists", prompt="Search for the artists you would like to find"))
     return oc
 ####################################################################################################
 @route(PREFIX + '/artistpages')
@@ -68,8 +55,7 @@ def ArtistsPages(pageUrl, title):
         image = item.xpath('.//img/@data-original')[0]
         image = image.split('?')[0]
         title = item.xpath('./meta[@itemprop="name"]/@content')[0]
-        link = link + 'music-videos/'
-        #oc.add(DirectoryObject(key=Callback(ArtistVideoPage, pageUrl=link, title=title), title=title, thumb=Resource.ContentsOfURLWithFallback(url=image)))
+        link = link + 'music/'
         oc.add(DirectoryObject(key=Callback(VideoPage, pageUrl=link, title=title), title=title, thumb=Resource.ContentsOfURLWithFallback(url=image)))
 
     if len(oc)==0:
@@ -89,7 +75,6 @@ def CollectionsPages(pageUrl, title):
         image = item.xpath('.//img/@src')[0]
         image = image.split('?')[0]
         artist_title = item.xpath('.//img/@alt')[0]
-        #oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl=link, title=artist_title), title=artist_title, thumb=Resource.ContentsOfURLWithFallback(url=image)))
         oc.add(DirectoryObject(key=Callback(ArtistsPages, pageUrl=link, title=artist_title), title=artist_title, thumb=Resource.ContentsOfURLWithFallback(url=image)))
 
     if len(oc)==0:
@@ -98,23 +83,15 @@ def CollectionsPages(pageUrl, title):
         return oc
 
 ####################################################################################################
-@route(PREFIX + '/artistalphabet')
-def ArtistAlphabet():
-    oc = ObjectContainer(title2="Artists")
-    for ch in list('ABCDEFGHIJKLMNOPQRSTUVWXYZ#'):
-        oc.add(DirectoryObject(key=Callback(Artists, ch=ch), title=ch))
-    return oc
-
-####################################################################################################
-@route(PREFIX + '/artists')
-def Artists(ch):
-    oc = ObjectContainer(title2="Artists: %s" % ch)
-    url = MTV_VIDEO_DIRECTORY % ch
-    for artist in HTML.ElementFromURL(url).xpath("//ol/li//a"):
-        url = MTV_ROOT + artist.get('href')
-        url = url + 'music-videos/'
-        title = artist.text
-        oc.add(DirectoryObject(key=Callback(ArtistVideoPage, pageUrl=url, title=title), title=title))
+@route(PREFIX + '/searchartists')
+def SearchArtists(title, query):
+    oc = ObjectContainer(title2=title)
+    url = MTV_SEARCH %String.Quote(query, usePlus = True)
+    json = JSON.ObjectFromURL(url)
+    for artist in json['response']['docs']:
+        url = MTV_ARTIST + artist['platform_artist_alias_s'] + '/music/'
+        title = artist['artist_name_s']
+        oc.add(DirectoryObject(key=Callback(VideoPage, pageUrl=url, title=title), title=title))
     if len(oc)==0:
         return ObjectContainer(header="Sorry!", message="No artist in this category")
     else:
